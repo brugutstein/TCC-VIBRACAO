@@ -1,0 +1,318 @@
+PASSO A PASSO PARA REPRODUÇÃO DOS MODELOS CNN E MLP
+
+Este documento descreve a sequência básica para reprodução dos modelos utilizados no trabalho:
+“Diagnóstico de falhas em bombas centrífugas baseado em vibração utilizando inteligência artificial como ferramenta de classificação”.
+
+Os scripts disponibilizados permitem gerar os arquivos de cache e treinar os modelos CNN e MLP, desde que a base de dados NLN-EMP esteja previamente baixada e organizada localmente.
+
+A base de dados bruta não acompanha este repositório devido ao seu tamanho. Portanto, antes da execução, o usuário deve baixar a base NLN-EMP e ajustar os caminhos nos scripts conforme o local onde os arquivos forem armazenados.
+
+============================================================
+1. PREPARAÇÃO DO AMBIENTE
+============================================================
+
+Acesse a pasta principal do projeto:
+
+cd caminho\para\pump_fault_tcc
+
+Crie um ambiente virtual Python:
+
+python -m venv .venv
+
+Ative o ambiente virtual:
+
+No Windows:
+
+.venv\Scripts\activate
+
+Instale as dependências:
+
+pip install -r requirements.txt
+
+Observação:
+As pastas .venv e .venv_gpu não devem ser versionadas no GitHub.
+
+
+============================================================
+2. BASE DE DADOS
+============================================================
+
+A base NLN-EMP deve estar disponível localmente antes da execução dos scripts.
+
+O caminho da base deve ser ajustado nos scripts conforme a estrutura usada pelo usuário.
+
+Exemplo de caminho utilizado durante o desenvolvimento:
+
+F:\TCC\Dataset\NLM-TCC\NLM_EMP vibration motor2
+
+Fluxo geral do projeto:
+
+base bruta
+→ geração de catálogo/cache
+→ treinamento dos modelos
+→ geração dos resultados
+
+
+============================================================
+3. REPRODUÇÃO DO MODELO CNN
+============================================================
+
+A CNN utiliza os sinais de vibração em formato multicanal, organizados em janelas temporais.
+
+------------------------------------------------------------
+3.1 Gerar o cache da CNN
+------------------------------------------------------------
+
+Executar:
+
+python build_cnn_cache.py
+
+Este script realiza:
+
+- leitura dos sinais vibracionais;
+- filtragem das classes utilizadas;
+- consolidação dos canais de vibração;
+- janelamento dos sinais;
+- separação dos dados em treino, validação e teste;
+- preservação dos grupos de condição;
+- salvamento dos dados processados em arquivo .npz.
+
+Saídas esperadas:
+
+outputs\cnn_cache_...\*.npz
+outputs\cnn_cache_...\cache_summary.csv
+outputs\cnn_cache_...\class_distribution_sequences.csv
+
+
+------------------------------------------------------------
+3.2 Conferir o caminho do cache da CNN
+------------------------------------------------------------
+
+Antes do treinamento, abrir o arquivo:
+
+train_cnn_from_cache_iterativo_CONGELADO.py
+
+Conferir se a variável CACHE_PATH aponta para o arquivo .npz gerado no passo anterior.
+
+Exemplo:
+
+CACHE_PATH = Path(r"outputs\cnn_cache_...\arquivo_cache.npz")
+
+Caso o caminho esteja incorreto, o treinamento não será executado corretamente.
+
+
+------------------------------------------------------------
+3.3 Treinar a CNN
+------------------------------------------------------------
+
+Executar:
+
+python train_cnn_from_cache_iterativo_CONGELADO.py
+
+Este script realiza:
+
+- carregamento do cache;
+- codificação das classes;
+- normalização dos dados;
+- montagem da arquitetura CNN 1D;
+- treinamento do modelo;
+- avaliação do desempenho;
+- geração de matrizes, relatórios e curvas.
+
+Saídas esperadas:
+
+outputs\resultado_iterativo\<run>\
+classification_report.csv
+confusion_matrix.csv
+confusion_matrix_normalized.csv
+confusion_matrix.png
+confusion_matrix_normalized.png
+accuracy_curve.png
+loss_curve.png
+model.keras
+run_summary.csv
+
+
+============================================================
+4. REPRODUÇÃO DO MODELO MLP
+============================================================
+
+O MLP utiliza características extraídas dos sinais vibracionais, como medidas estatísticas e espectrais.
+
+------------------------------------------------------------
+4.1 Gerar o catálogo do MLP
+------------------------------------------------------------
+
+Executar:
+
+python build_mlp_catalog.py
+
+Este script organiza as informações necessárias para construção do dataset tabular utilizado pelo MLP.
+
+
+------------------------------------------------------------
+4.2 Gerar o cache do MLP
+------------------------------------------------------------
+
+Executar:
+
+python build_mlp_cache.py
+
+Este script gera os arquivos de entrada do MLP a partir das características extraídas dos sinais.
+
+Saídas esperadas:
+
+outputs\mlp_dataset\...\X_train.npz
+outputs\mlp_dataset\...\X_val.npz
+outputs\mlp_dataset\...\X_test.npz
+outputs\mlp_dataset\...\y_train.csv
+outputs\mlp_dataset\...\y_val.csv
+outputs\mlp_dataset\...\y_test.csv
+outputs\mlp_dataset\...\meta_test.csv
+outputs\mlp_dataset\...\split_intersections.csv
+
+Observação:
+O arquivo meta_test.csv é necessário para avaliação por grupo, pois contém a identificação dos grupos de condição experimental.
+
+
+------------------------------------------------------------
+4.3 Conferir o caminho do cache do MLP
+------------------------------------------------------------
+
+Antes do treinamento, abrir o arquivo:
+
+train_mlp_baseline.py
+
+Conferir se a variável de caminho do dataset/cache aponta para a pasta gerada pelo build_mlp_cache.py.
+
+Exemplo:
+
+CACHE_DIR = Path(r"outputs\mlp_dataset\...")
+
+
+------------------------------------------------------------
+4.4 Treinar o MLP
+------------------------------------------------------------
+
+Executar:
+
+python train_mlp_baseline.py
+
+Este script realiza:
+
+- carregamento do cache tabular;
+- normalização dos dados;
+- seleção de características;
+- treinamento do modelo MLP;
+- avaliação por amostra;
+- avaliação por grupo;
+- avaliação com loose foot agrupado;
+- geração de relatórios, matrizes e curvas.
+
+Saídas esperadas:
+
+outputs\mlp_baseline\<run>\
+classification_report.csv
+classification_report_group.csv
+mlp_loose_grouped_classification_report.csv
+confusion_matrix_normalized.png
+mlp_loose_grouped_confusion_matrix_normalized.png
+training_curves_final.png
+f1_per_class.png
+run_summary.txt
+mlp_baseline.keras
+
+
+============================================================
+5. ORDEM GERAL DE EXECUÇÃO
+============================================================
+
+Para reproduzir todo o fluxo, executar os scripts nesta ordem:
+
+1. Gerar cache da CNN:
+
+python build_cnn_cache.py
+
+2. Treinar CNN:
+
+python train_cnn_from_cache_iterativo_CONGELADO.py
+
+3. Gerar catálogo do MLP:
+
+python build_mlp_catalog.py
+
+4. Gerar cache do MLP:
+
+python build_mlp_cache.py
+
+5. Treinar MLP:
+
+python train_mlp_baseline.py
+
+
+============================================================
+6. ARQUIVOS PRINCIPAIS DO PROJETO
+============================================================
+
+Arquivos principais da CNN:
+
+build_cnn_cache.py
+train_cnn_from_cache_iterativo_CONGELADO.py
+train_cnn_lstm_v7.py
+
+Arquivos principais do MLP:
+
+build_mlp_catalog.py
+build_mlp_cache.py
+train_mlp_baseline.py
+
+Módulos auxiliares:
+
+src\catalog.py
+src\cv.py
+src\dataset_builder.py
+src\ingest.py
+src\preprocess.py
+src\split.py
+src\windowing.py
+
+Arquivo de dependências:
+
+requirements.txt
+
+
+============================================================
+7. ARQUIVOS NÃO INCLUÍDOS NO REPOSITÓRIO
+============================================================
+
+Os seguintes arquivos e pastas não devem ser enviados ao GitHub:
+
+.venv\
+.venv_gpu\
+outputs\
+Arquivo morto\
+*.npz
+*.npy
+*.keras
+*.h5
+*.pkl
+*.joblib
+
+Esses arquivos são pesados, gerados automaticamente ou pertencem ao ambiente local de execução.
+
+
+============================================================
+8. OBSERVAÇÃO FINAL
+============================================================
+
+Este repositório contém os scripts necessários para reprodução do fluxo de preparação dos dados e treinamento dos modelos.
+
+Para executar o projeto, o usuário deve:
+
+1. baixar a base NLN-EMP separadamente;
+2. ajustar os caminhos da base nos scripts;
+3. instalar as dependências;
+4. gerar os caches;
+5. executar os treinamentos.
+
+Os resultados podem variar conforme ambiente de execução, versão das bibliotecas, disponibilidade de GPU e organização local da base de dados.
